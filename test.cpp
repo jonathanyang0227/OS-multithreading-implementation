@@ -6,64 +6,75 @@
 
 using namespace std;
 
-mutex gMutex;
+pthread_mutex_t mutexsum;
 
-void convert(vector<vector<int> > &d,
-             int &i,        // order
-             int c,         //line_per_thread
-             int num,   //total thread num
-             stringstream &s,
-             int del)
+typedef struct
 {
-    lock_guard<mutex> mLock(gMutex);
-    int start = (i * c);
-    int end = (i * c) + c;
-    if (i == num - 1) {
-        end -= del;
-    }
+   int thread_id;
+   int start;
+   int end;
+   stringstream s;
+}perthread;
+
+pthread_mutex_t mutexsum;
+
+void *convert( void *d,
+            void  *infor)
+{
+    perthread *data = (perthread *)infor;
+   int thread_id = data->thread_id;
+   int start = data->start;
+   int end = data->end;
+   stringstream s= data->s;
+
     for (int k = start; k < end; k++) {
         // cout<<k<<endl;
-        s << "\t"
-          << "{" << endl;
+        s << "\t"<< "{" << endl;
         for (int j = 0; j < 20; j++) {
             s << "\t\t"
               << "\""
               << "col_" << j + 1 << "\""
-              << ":" << d[k][j];
+              << ":" << (vector<vector<int> >)d[k][j];
             j == 19 ? s << endl : s << "," << endl;
         }
         s << "\t"
           << "}" << endl;
     }
-    i++;*
+    pthread_exit((void *)0);
 }
 
 int main(int argc, char *argv[])
 {
     double start, end;
     double start_1, end_1;
-
     struct timeval wall_s, wall_e;
     struct timeval wall_s1, wall_e1;
 
+    //for setting pthread
+    pthread_mutex_init(&mutexsum, NULL);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
     ifstream inFile("input.csv", ios::in);
     if (!inFile) {
         cout << "開啟檔案失敗！" << endl;
         exit(1);
     }
-    start = clock();  
-    gettimeofday(&wall_s, NULL);
     ofstream os;
     os.open("ouput.json");
+    start = clock();  
+    gettimeofday(&wall_s, NULL);
+    
     int num, i = 0;
     int n =atoi(argv[1]);
     int size =atoi(argv[2]);
     int count = 0;
-    vector<vector<int> > data;
-    stringstream ss;
+     int order = 0;  
+    vector<vector<int> > data; 
+
+    //read input.csv
     string line;
-    int order = 0;
     while (getline(inFile, line)) {
         istringstream sin(line);  //切割字串
         vector<int> buff;
@@ -76,37 +87,57 @@ int main(int argc, char *argv[])
     }
     inFile.close();
 
+    stringstream ss;
     cout << "how many threads? : ";
     cin >> num;
-    vector<thread> multi;
+    pthread_t Thd[num]; // create  pthread
+    perthread per[num];
     int del = 0;
     int num_perthread = (data.size() / num) + (data.size() % num != 0);
     if (data.size() % num != 0) {
         del = (num_perthread * num) - (data.size());
     }
+
     ss << "{";
     ss << "\n";
     start_1 = clock();
     gettimeofday(&wall_s1, NULL);
     for (i = 0; i < num; i++) {
-        multi.push_back(
-            thread(convert, ref(data), ref(order), num_perthread, num, ref(ss), del));
+        per[i].thread_id = i;
+        per[i].start = num* i;
+        per[i].end =i*num+num;
+        if (i == num - 1) {
+        per[i].end -= del;
     }
-    for (int i = 0; i < multi.size(); i++) {
-        multi[i].join();
+      pthread_create(&Thd[i], &attr, convert , (void*) &data, (void *)&per[i]);
     }
+    pthread_attr_destroy(&attr);
+
+   void *status;
+   for (int i = 0; i < num; i++)
+   {
+       ss<<per[i].s.str();
+      pthread_join(Thd[i], &status);
+   }
+
+   pthread_mutex_destroy(&mutexsum);
+   pthread_exit(NULL);
+
     end_1 = clock();
     gettimeofday(&wall_e1, NULL);
-    cout << "thread wall time : " << wall_e1.tv_sec - wall_s1.tv_sec << endl;
 
+    cout << "thread wall time : " << wall_e1.tv_sec - wall_s1.tv_sec << endl;
     cout << "thread CPU time : " << (end_1 - start_1) / CLOCKS_PER_SEC << endl;
+
     ss << "}";
     os << ss.str();
     os.close();
     data.clear();
+
     gettimeofday(&wall_e, NULL);
     end = clock();
     cout << "total time (walltime) : " << wall_e.tv_sec - wall_s.tv_sec << endl;
     cout << "total time (CPU) : " << (end - start) / CLOCKS_PER_SEC << endl;
+
     return 0;
 }
