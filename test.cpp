@@ -8,39 +8,40 @@ using namespace std;
 
 pthread_mutex_t mutexsum;
 
-typedef struct
-{
-   int thread_id;
-   int start;
-   int end;
-   stringstream s;
-}perthread;
+typedef struct {
+    int thread_id;
+    int start;
+    int end;
+    stringstream s;
+    vector < vector<int> > d;
+} perthread;
 
-pthread_mutex_t mutexsum;
 
-void *convert( void *d,
-            void  *infor)
+void *convert(void *infor )
 {
-    perthread *data = (perthread *)infor;
-   int thread_id = data->thread_id;
-   int start = data->start;
-   int end = data->end;
-   stringstream s= data->s;
+    perthread *data = (perthread *) infor;
+    int thread_id = data->thread_id;
+    int start = data->start;
+    int end = data->end;
+    stringstream s = data->s;
+    vector<vector<int> > d= data->d;
 
     for (int k = start; k < end; k++) {
         // cout<<k<<endl;
-        s << "\t"<< "{" << endl;
+        s << "\t"
+          << "{" << endl;
         for (int j = 0; j < 20; j++) {
-            s << "\t\t"
+           s << "\t\t"
               << "\""
               << "col_" << j + 1 << "\""
-              << ":" << (vector<vector<int> >)d[k][j];
-            j == 19 ? s << endl : s << "," << endl;
+              << ":" << d[k][j];
+            j == 19 ? *s << endl : *s << "," << endl;
         }
         s << "\t"
           << "}" << endl;
     }
-    pthread_exit((void *)0);
+    s.str("");
+    pthread_exit((void *) 0);
 }
 
 int main(int argc, char *argv[])
@@ -50,8 +51,7 @@ int main(int argc, char *argv[])
     struct timeval wall_s, wall_e;
     struct timeval wall_s1, wall_e1;
 
-    //for setting pthread
-    pthread_mutex_init(&mutexsum, NULL);
+    // for setting pthread
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -63,17 +63,17 @@ int main(int argc, char *argv[])
     }
     ofstream os;
     os.open("ouput.json");
-    start = clock();  
+    start = clock();
     gettimeofday(&wall_s, NULL);
-    
-    int num, i = 0;
-    int n =atoi(argv[1]);
-    int size =atoi(argv[2]);
-    int count = 0;
-     int order = 0;  
-    vector<vector<int> > data; 
 
-    //read input.csv
+    int num, i = 0;
+    int n = atoi(argv[1]);
+    int size = atoi(argv[2]);
+    int count = 0;
+    int order = 0;
+    vector<vector<int> > data;
+
+    // read input.csv
     string line;
     while (getline(inFile, line)) {
         istringstream sin(line);  //切割字串
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     stringstream ss;
     cout << "how many threads? : ";
     cin >> num;
-    pthread_t Thd[num]; // create  pthread
+    pthread_t Thd[num];  // create  pthread
     perthread per[num];
     int del = 0;
     int num_perthread = (data.size() / num) + (data.size() % num != 0);
@@ -98,30 +98,33 @@ int main(int argc, char *argv[])
         del = (num_perthread * num) - (data.size());
     }
 
-    ss << "{";
-    ss << "\n";
     start_1 = clock();
     gettimeofday(&wall_s1, NULL);
+
+    ss << "{";
+    ss << "\n";
+
     for (i = 0; i < num; i++) {
         per[i].thread_id = i;
-        per[i].start = num* i;
-        per[i].end =i*num+num;
+        per[i].start = num * i;
+        per[i].end = i * num + num;
+        per[i].d=data;
+        //per[i].s=n.str("");
         if (i == num - 1) {
-        per[i].end -= del;
-    }
-      pthread_create(&Thd[i], &attr, convert , (void*) &data, (void *)&per[i]);
+            per[i].end -= del;
+        }
+        pthread_create(&Thd[i], &attr, convert, (void *) &per[i]);
     }
     pthread_attr_destroy(&attr);
 
-   void *status;
-   for (int i = 0; i < num; i++)
-   {
-       ss<<per[i].s.str();
-      pthread_join(Thd[i], &status);
-   }
+    void *status;
+    for (int i = 0; i < num; i++) {
+        pthread_join(Thd[i], &status); 
+        ss << per[i].s.str();
+        per[i].s.str("");
+    }
 
-   pthread_mutex_destroy(&mutexsum);
-   pthread_exit(NULL);
+    pthread_exit(NULL);
 
     end_1 = clock();
     gettimeofday(&wall_e1, NULL);
@@ -133,7 +136,7 @@ int main(int argc, char *argv[])
     os << ss.str();
     os.close();
     data.clear();
-
+    ss.str("");
     gettimeofday(&wall_e, NULL);
     end = clock();
     cout << "total time (walltime) : " << wall_e.tv_sec - wall_s.tv_sec << endl;

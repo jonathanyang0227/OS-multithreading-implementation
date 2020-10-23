@@ -35,7 +35,7 @@ void convert(vector<vector<int> > &d,
         s << "\t"
           << "}" << endl;
     }
-    i++;*
+    i++;
 }
 
 int main(int argc, char *argv[])

@@ -2,7 +2,7 @@
 
 using namespace std;
 
-int main(int argc, char *argv[+])
+int main(int argc, char *argv[])
 {
     char input_file[] = "input.csv";
     int n = atoi(argv[1]), i, size =atoi(argv[2]);
