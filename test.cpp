@@ -35,7 +35,7 @@ void *convert(void *infor )
               << "\""
               << "col_" << j + 1 << "\""
               << ":" << d[k][j];
-            j == 19 ? *s << endl : *s << "," << endl;
+            j == 19 ? s << endl : s << "," << endl;
         }
         s << "\t"
           << "}" << endl;
