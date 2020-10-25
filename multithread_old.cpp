@@ -8,29 +8,34 @@ using namespace std;
 
 mutex gMutex;
 
-typedef struct {
-    int id;
-    stringstream s;
-}perthread;
-void convert(vector<vector<int> > d,       
-             int start,         
-             int end,  
-             stringstream &ss)
+void convert(vector<vector<int> > &d,
+             int &i,        // order
+             int c,         //line_per_thread
+             int num,   //total thread num
+             stringstream &s,
+             int del)
 {
+    lock_guard<mutex> mLock(gMutex);
+    int start = (i * c);
+    int end = (i * c) + c;
+    if (i == num - 1) {
+        end -= del;
+    }
     for (int k = start; k < end; k++) {
-         //cout<<k<<endl;
-        ss<< "\t"
+        // cout<<k<<endl;
+        s << "\t"
           << "{" << endl;
         for (int j = 0; j < 20; j++) {
-            ss<< "\t\t"
-              << "\""   
+            s << "\t\t"
+              << "\""
               << "col_" << j + 1 << "\""
               << ":" << d[k][j];
-            j == 19 ? ss<< endl : ss << "," << endl;
+            j == 19 ? s << endl : s << "," << endl;
         }
-        ss<< "\t"
+        s << "\t"
           << "}" << endl;
-    } 
+    }
+    i++;
 }
 
 int main(int argc, char *argv[])
@@ -49,15 +54,14 @@ int main(int argc, char *argv[])
     }
     start = clock();  
     gettimeofday(&wall_s, NULL);
-    //FILE *output=fopen("output.json","w");
-    ofstream output;
-    output.open("output.json");
+    ofstream os;
+    os.open("ouput.json");
     int num, i = 0;
     int n =atoi(argv[1]);
     int size =atoi(argv[2]);
     int count = 0;
     vector<vector<int> > data;
-
+    stringstream ss;
     string line;
     int order = 0;
     while (getline(inFile, line)) {
@@ -80,36 +84,25 @@ int main(int argc, char *argv[])
     if (data.size() % num != 0) {
         del = (num_perthread * num) - (data.size());
     }
-    perthread per[num];
+    ss << "{";
+    ss << "\n";
     start_1 = clock();
     gettimeofday(&wall_s1, NULL);
-    vector<string> out;
     for (i = 0; i < num; i++) {
-        per[i].id=i;
-        int start = (i * num_perthread);
-        int end = (i * num_perthread) + num_perthread;
-        if (i == num - 1) {
-        end -= del;
-    }
         multi.push_back(
-            thread(convert, data, start, end, ref(per[i].s))
-        );
+            thread(convert, ref(data), ref(order), num_perthread, num, ref(ss), del));
     }
     for (int i = 0; i < multi.size(); i++) {
         multi[i].join();
     }
     end_1 = clock();
     gettimeofday(&wall_e1, NULL);
-    cout << "thread wall time : " <<(long)(wall_e1.tv_sec - wall_s1.tv_sec) << endl;
+    cout << "thread wall time : " << wall_e1.tv_sec - wall_s1.tv_sec << endl;
 
     cout << "thread CPU time : " << (end_1 - start_1) / CLOCKS_PER_SEC << endl;
-    output<<"{\n";
-    for(int i=0;i<num;i++){
-        output<<per[i].s.str();
-        per[i].s.str("");
-    }
-    output << "}";
-    output.close();
+    ss << "}";
+    os << ss.str();
+    os.close();
     data.clear();
     gettimeofday(&wall_e, NULL);
     end = clock();
